@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/ankitdb
+    username: root
+    password: Bhati@123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+razorpay:
+  key:
+    id: rzp_test_5VVCvWNEvbMGyZ
+    secret: lluJxiSaqkXnDhxGqK0N4O5L

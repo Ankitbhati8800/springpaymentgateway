@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring Boot with Payment Gateway</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Spring Boot with Payment Gateway</h1>
+
+        <form id="paymentForm">
+            <table class="table table-bordered">
+                <tr>
+                    <td>Name</td>
+                    <td><input type="text" id="name" class="form-control" required></td>
+                </tr>
+                <tr>
+                    <td>Phone No</td>
+                    <td><input type="text" id="phno" class="form-control" required></td>
+                </tr>
+                <tr>
+                    <td>Email</td>
+                    <td><input type="email" id="email" class="form-control" required></td>
+                </tr>
+                <tr>
+                    <td>Select Course</td>
+                    <td>
+                        <select class="form-select" id="course" required>
+                            <option value="" disabled selected>Select Course</option>
+                            <option value="java">Java</option>
+                            <option value="python">Python</option>
+                            <option value="devops">DevOps</option>
+                            <option value="aws">AWS</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Amount (in Rupees)</td>
+                    <td><input type="number" id="amount" class="form-control" required></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td><button type="button" id="rzp-button" class="btn btn-primary">Proceed to Pay</button></td>
+                </tr>
+            </table>
+        </form>
+    </div>
+
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <script>
+        async function createOrder() {
+            try {
+                const amountInRupees = document.getElementById("amount").value;
+                if (amountInRupees <= 0) {
+                    alert("Please enter a valid amount!");
+                    return null;
+                }
+                const amountInPaise = amountInRupees * 100;
+
+                const response = await fetch("http://localhost:8080/api/payments/create-order", { // Updated URL for order creation
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name: document.getElementById("name").value,
+                        email: document.getElementById("email").value,
+                        phno: document.getElementById("phno").value,
+                        course: document.getElementById("course").value,
+                        amount: amountInRupees
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to create order");
+                }
+
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error("Error creating order:", error);
+                alert("Error creating order");
+            }
+        }
+
+        async function initializePayment() {
+            const orderData = await createOrder();
+            if (orderData === null) return; // Do nothing if order creation fails
+
+            const options = {
+                key: "rzp_test_5VVCvWNEvbMGyZ", // Your Razorpay API key here
+                amount: orderData.amount * 100, // amount in paise
+                currency: "INR",
+                name: "Spring Boot Payment Gateway",
+                description: "Payment for Course: " + orderData.course,
+                image: "https://example.com/your_logo.png", // Optional: logo for Razorpay checkout page
+                order_id: orderData.razorpayorderid, // Order ID from Razorpay API response
+                handler: function (response) {
+                    console.log("Payment Successful:", response);
+                    // Call your backend to update the payment status
+                    fetch("http://localhost:8080/api/payments/payment-callback", { 
+                        method: "POST", 
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature
+                        })
+                    }).then(() => {
+                        alert("Payment successful and updated in the backend.");
+                    }).catch(error => {
+                        console.error("Error updating payment status:", error);
+                    });
+                },
+                prefill: {
+                    name: orderData.name,
+                    email: orderData.email,
+                    contact: orderData.phno
+                },
+                notes: {
+                    course: orderData.course
+                },
+                theme: {
+                    color: "#F37254"
+                }
+            };
+
+            const razorpayInstance = new Razorpay(options);
+            razorpayInstance.open();
+        }
+
+        document.getElementById("rzp-button").onclick = function () {
+            initializePayment();
+        };
+    </script>
+</body>
+</html>
